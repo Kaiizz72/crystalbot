@@ -39,12 +39,7 @@ function sameTeam (nameA, nameB) {
 
 // Câu chat PvP
 const CHASE_LINES = [
-  "You can't run from me!",
-  "Come here, I'm not done yet!",
-  "Keep running, I'll catch you!",
-  "You think you can escape?",
-  "I'm on you!",
-  "Nice try, runner!"
+  "?"
 ]
 
 // =======================
