@@ -1,4 +1,4 @@
-// bot.js — HT1 Crystal PvP bots "điên loạn" + fallback kiếm
+// bot.js — HT1 Crystal PvP bots "điên loạn" + fallback kiếm (tầm nhìn 1000 block)
 // Yêu cầu: node 18+, mineflayer 4.31+, pathfinder, pvp, vec3
 
 const mineflayer = require('mineflayer')
@@ -23,10 +23,10 @@ const BOT_NAMES = [
   'xCrystal', 'TrumCrytal', 'BoMayChapHet', 'MayChemTQ', 'MeoCuNho', 'Pundangyeu', 'Tai2k8',
 
   'xPVP2', 'CauBeNgoc', 'MayChemHaTinh', 'Memaybel', 'Bomaychaphet', 'noomn', 'tretraumc', 'Phu2k8', 'LinhDepGai',
-  'CryGod', 'CrystalVN', 'TryHarder', 'Killauranecacem', 'Kid2k9', 'RefillPro', 'HeadShotVN', 'DragClicker', 'WtapGod', 'JitterKing',
-  'SweatAsia', 'DuongFG', 'Click36cps', 'NhatLMAO', 'FakeCheater', 'Ngocnhicute', 'MeoSimmyZ', 'LagButPro', 'Kinghaomc', 'Diddy',
-  'SoPer', 'Poaxer', 'Anain', 'Abuser', 'Faxrz', 'Warrior', 'Drinder', 'Skaxd', 'Yeuanbpc', 'ArenaTryhard',
-  'Maylaai'
+  'CryGod', 'CrystalVN', 'TryHarder', 'KillauraGia', 'ComboLord', 'RefillPro', 'HeadShotVN', 'DragClicker', 'WtapGod', 'JitterKing',
+  'SweatAsia', 'HitRegOK', 'Click36cps', 'LegitButOP', 'FakeCheater', 'Ping1ms', 'Ping200ms', 'LagButPro', 'NetheriteKing', 'DiamondKid',
+  'SoupPvPer', 'PotPvPer', 'AnchorMain', 'TotemAbuser', 'FFAEnjoyer', 'QueueWarrior', 'RankGrinder', 'SkybridgeKid', 'BoxPvPKing', 'ArenaTryhard',
+  'CrystalRunner'
 ]
 
 // Team bạn: 3 thằng này không đánh nhau
@@ -84,7 +84,7 @@ function findSword (bot) {
     'golden_sword',
     'wooden_sword'
   ]
-  return bot.inventory.items().find(it => swordNames.includes(it.name))
+  return bot.inventory.items().find(it => list.includes(it.name))
 }
 
 async function equipSword (bot) {
@@ -280,97 +280,90 @@ function getNearestCrystalEntity (bot, pos, radius) {
   return best
 }
 
-// Combo crystal: obsidian + crystal + đánh nổ
+// Combo crystal: obsidian + crystal + ĐỢI rồi mới đánh nổ
 async function crystalCombo (bot, target) {
+  if (bot._crystalBusy) return
+  const obsidian = findItem(bot, ['obsidian', 'crying_obsidian'])
+  const crystalItem = findItem(bot, 'end_crystal')
+  if (!obsidian || !crystalItem) return
+
+  const dist = bot.entity.position.distanceTo(target.position)
+  if (dist > 7) return
+
+  bot._crystalBusy = true
   try {
-    if (bot._crystalBusy) return
-    const obsidian = findItem(bot, ['obsidian', 'crying_obsidian'])
-    const crystalItem = findItem(bot, 'end_crystal')
-    if (!obsidian || !crystalItem) return
-
-    const dist = bot.entity.position.distanceTo(target.position)
-    if (dist > 7) return
-
-    bot._crystalBusy = true
-
     const feet = target.position.floored()
     const baseBelow = bot.blockAt(feet.offset(0, -1, 0))
-    if (!baseBelow) {
-      bot._crystalBusy = false
-      return
-    }
+    if (!baseBelow) return
 
+    // Nhìn + đặt obsidian
     await bot.lookAt(baseBelow.position.offset(0.5, 1, 0.5), true)
-
     await bot.equip(obsidian, 'hand')
     await bot.placeBlock(baseBelow, new Vec3(0, 1, 0))
 
-    const obsBlock = bot.blockAt(feet)
-    if (!obsBlock || !obsBlock.name.includes('obsidian')) {
-      bot._crystalBusy = false
-      return
-    }
+    // ĐỢI cho block được update
+    await wait(180)
 
+    const obsBlock = bot.blockAt(feet)
+    if (!obsBlock || !obsBlock.name.includes('obsidian')) return
+
+    // Đặt crystal
     await bot.equip(crystalItem, 'hand')
     await bot.lookAt(obsBlock.position.offset(0.5, 1, 0.5), true)
     await bot.placeBlock(obsBlock, new Vec3(0, 1, 0))
 
-    setTimeout(() => {
-      try {
-        const crystal = getNearestCrystalEntity(
-          bot,
-          obsBlock.position.offset(0.5, 1, 0.5),
-          4
-        )
-        if (crystal) bot.attack(crystal)
-      } catch (_) {
-      } finally {
-        bot._crystalBusy = false
-      }
-    }, 120)
+    // ĐỢI cho entity crystal spawn
+    await wait(180)
+
+    const crystal = getNearestCrystalEntity(
+      bot,
+      obsBlock.position.offset(0.5, 1, 0.5),
+      4
+    )
+    if (crystal) {
+      bot.attack(crystal)
+    }
   } catch (_) {
+    // ignore lỗi nhỏ
+  } finally {
     bot._crystalBusy = false
   }
 }
 
-// Combo anchor: respawn anchor + glowstone để nổ
+// Combo anchor: anchor + ĐỢI + glowstone kích nổ
 async function anchorCombo (bot, target) {
+  if (bot._anchorBusy) return
+  const anchorItem = findItem(bot, 'respawn_anchor')
+  const glowstoneItem = findItem(bot, 'glowstone')
+  if (!anchorItem || !glowstoneItem) return
+
+  const dist = bot.entity.position.distanceTo(target.position)
+  if (dist > 7) return
+
+  bot._anchorBusy = true
   try {
-    if (bot._anchorBusy) return
-    const anchorItem = findItem(bot, 'respawn_anchor')
-    const glowstoneItem = findItem(bot, 'glowstone')
-    if (!anchorItem || !glowstoneItem) return
-
-    const dist = bot.entity.position.distanceTo(target.position)
-    if (dist > 7) return
-
-    bot._anchorBusy = true
-
     const feet = target.position.floored()
     const baseBelow = bot.blockAt(feet.offset(0, -1, 0))
-    if (!baseBelow) {
-      bot._anchorBusy = false
-      return
-    }
+    if (!baseBelow) return
 
-    await bot.equip(anchorItem, 'hand')
     await bot.lookAt(baseBelow.position.offset(0.5, 1, 0.5), true)
+    await bot.equip(anchorItem, 'hand')
     await bot.placeBlock(baseBelow, new Vec3(0, 1, 0))
 
+    // ĐỢI anchor hiện ra
+    await wait(180)
+
     const anchorBlock = bot.blockAt(feet)
-    if (!anchorBlock || anchorBlock.name !== 'respawn_anchor') {
-      bot._anchorBusy = false
-      return
-    }
+    if (!anchorBlock || anchorBlock.name !== 'respawn_anchor') return
 
     await bot.equip(glowstoneItem, 'hand')
     await bot.lookAt(anchorBlock.position.offset(0.5, 0.5, 0.5), true)
     await bot.activateBlock(anchorBlock)
 
-    setTimeout(() => {
-      bot._anchorBusy = false
-    }, 200)
+    // Đợi thêm chút cho server xử lý nổ
+    await wait(150)
   } catch (_) {
+  } finally {
     bot._anchorBusy = false
   }
 }
@@ -455,10 +448,10 @@ function setupHT1CrystalBrain (bot) {
     const rage =
       hp > 12 || (state.rageUntil && now < state.rageUntil)
 
-    // Không đi quá xa home ~100 block
+    // Không đi quá xa home ~1000 block
     if (bot._homePos) {
       const homeDist = bot.entity.position.distanceTo(bot._homePos)
-      if (homeDist > 100) {
+      if (homeDist > 1000) {
         if (bot.pvp.target) bot.pvp.stop()
         bot.setControlState('jump', false)
         bot.setControlState('sprint', false)
@@ -473,12 +466,12 @@ function setupHT1CrystalBrain (bot) {
       }
     }
 
-    // Tầm nhìn rộng cho bot (100 block)
-    let target = getNearestEnemyPlayer(bot, 100)
+    // Tầm nhìn rất xa: 1000 block
+    let target = getNearestEnemyPlayer(bot, 1000)
 
     if (target && bot._homePos) {
       const distFromHomeToTarget = target.position.distanceTo(bot._homePos)
-      if (distFromHomeToTarget > 100) target = null
+      if (distFromHomeToTarget > 1000) target = null
     }
 
     if (target) {
@@ -489,7 +482,6 @@ function setupHT1CrystalBrain (bot) {
       bot.lookAt(target.position.offset(0, 1.6, 0), true).catch(() => {})
 
       const dist = bot.entity.position.distanceTo(target.position)
-
       const haveCrystalStuff = hasCrystalStuff(bot)
 
       // Cận chiến
@@ -506,10 +498,10 @@ function setupHT1CrystalBrain (bot) {
           }, 120)
         }
 
-        // Nếu còn crystal/anchor => spam điên
+        // Nếu còn crystal/anchor => spam có delay
         if (haveCrystalStuff) {
-          const crystalCd = rage ? 120 : 300
-          const anchorCd = rage ? 220 : 500
+          const crystalCd = rage ? 160 : 320
+          const anchorCd = rage ? 260 : 520
 
           if (now - state.lastCrystalCombo > crystalCd) {
             state.lastCrystalCombo = now
@@ -521,7 +513,6 @@ function setupHT1CrystalBrain (bot) {
             anchorCombo(bot, target)
           }
         }
-        // Hết crystal/anchor => thuần kiếm W-tap, không combo nữa
       } else {
         bot.setControlState('jump', false)
       }
@@ -551,8 +542,8 @@ function setupHT1CrystalBrain (bot) {
 
           // Còn crystal/anchor thì spam random khi đối thủ chạy
           if (haveCrystalStuff) {
-            const runCrystalCd = rage ? 150 : 350
-            const runAnchorCd = rage ? 200 : 450
+            const runCrystalCd = rage ? 220 : 380
+            const runAnchorCd = rage ? 260 : 480
 
             if (now - state.lastCrystalCombo > runCrystalCd && Math.random() < 0.9) {
               state.lastCrystalCombo = now
@@ -568,7 +559,7 @@ function setupHT1CrystalBrain (bot) {
       }
       state.lastDist = dist
 
-      // Tầm xa: luôn dùng pearl tiếp cận, kể cả khi hết crystal/anchor
+      // Tầm xa: luôn dùng pearl tiếp cận (kể cả hết crystal/anchor)
       const farPearlMin = 12
       const farPearlMax = 80
       const farPearlCd = rage ? 1200 : 2500
@@ -577,7 +568,7 @@ function setupHT1CrystalBrain (bot) {
         throwPearlAt(bot, target)
       }
 
-      // Dính tơ -> bắn cung thêm damage
+      // Dính tơ -> bắn cung
       if (isEntityInWeb(bot, target) && now - state.lastBow > 1000) {
         state.lastBow = now
         shootBowAt(bot, target)
@@ -658,3 +649,4 @@ function createBot (name) {
     await wait(20000)
   }
 })()
+      
